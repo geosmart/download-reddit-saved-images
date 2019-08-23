@@ -9,13 +9,9 @@ from bs4 import BeautifulSoup as bs
 from zipfile import ZipFile
 from PIL import Image
 import praw
-try:
-    from io import BytesIO
-except ImportError:
-    from StringIO import BytesIO
+from io import BytesIO
 import time
 import yaml
-
 
 __author__ = 'Adrian Espinosa'
 __version__ = '2.0.3'
@@ -48,12 +44,13 @@ class Downloader(object):
     Define here all methods to download images from different hosts or
     even direct link to image
     """
+
     # global ERRORS
 
     def __init__(self, submission):
         self.submission = submission
         self.path = os.path.join(SAVE_DIR, str(submission.created) +
-                                 submission.title.encode('utf-8')[0:20]
+                                 str(submission.title.encode('utf-8'))[0:255]
                                  .replace("/", "")
                                  .replace("\\", "")).replace('"', "")
         self.album_path = os.path.join(self.path, 'albums')
@@ -114,7 +111,7 @@ class Downloader(object):
         Album from imgur
         """
         download_url = 'http://s.imgur.com/a/%s/zip' % \
-            (os.path.split(self.submission.url)[1])
+                       (os.path.split(self.submission.url)[1])
         try:
             response = requests.get(download_url)
         except Exception as e:
@@ -139,7 +136,7 @@ class Downloader(object):
             except OSError as ex:
                 ERRORS.append(self.submission.title.encode('utf-8'))
                 print(ex)
-            #print("Exception: {0}".format(str(ex)))
+            # print("Exception: {0}".format(str(ex)))
             print("Album is too big, downloading images...")
             # this is the best layout
             idimage = os.path.split(self.submission.url)[1]
@@ -167,7 +164,7 @@ class Downloader(object):
                         img_url = "http:{0}".format(img_url)
                     print("Processing {0}".format(img_url))
                     self.download_and_save(img_url, custom_path=path +
-                                           "/" + str(counter))
+                                                                "/" + str(counter))
                 except Exception as ex:
                     ERRORS.append(self.submission.title.encode('utf-8'))
                     print("Exception: {0}".format(str(ex)))
@@ -180,7 +177,7 @@ class Downloader(object):
         # just a hack. i dont know if this will be a .jpg, but in order to
         # download an image data, I have to write an extension
         new_url = "http://i.imgur.com/%s.jpg" % \
-            (os.path.split(self.submission.url)[1])
+                  (os.path.split(self.submission.url)[1])
         try:
             self.download_and_save(new_url)
         except Exception as ex:
@@ -273,15 +270,15 @@ class Downloader(object):
             else:
                 print("%s ->> Domain not supported" % (self.submission.domain))
 
-R = praw.Reddit("aesptux\'s saved images downloader")
+
+R = praw.Reddit(**CONFIG_DATA)
 
 print("Logging in...")
 # create session
-R.login(username=USERNAME, password=PASSWORD)
 print("Logged in.")
 print("Getting data...")
 # this returns a generator
-SAVED_LINKS = R.user.get_saved(limit=None)
+SAVED_LINKS = R.user.me().saved()
 # check if dir exists
 if not os.path.exists(SAVE_DIR):
     os.mkdir(SAVE_DIR)
@@ -289,12 +286,13 @@ if not os.path.exists(os.path.join(SAVE_DIR, 'albums')):
     os.mkdir(ALBUM_PATH)
 
 for link in SAVED_LINKS:
-    # delete trailing slash
-    if link.url.endswith('/'):
-        link.url = link.url[0:-1]
-    # create object per submission. Trusting garbage collector!
-    d = Downloader(link)
-    d.choose_download_method()
+    if hasattr(link, 'url'):
+        # delete trailing slash
+        if link.url.endswith('/'):
+            link.url = link.url[0:-1]
+        # create object per submission. Trusting garbage collector!
+        d = Downloader(link)
+        d.choose_download_method()
 
 print("Done.")
 
